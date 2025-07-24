@@ -52,7 +52,7 @@ cd moral-compass-ai
 2. **Install dependencies**
 
 ```
-yarn install
+pnpm install
 ```
 
 3. **Set environment variables**
@@ -66,7 +66,7 @@ OPENAI_API_KEY=your-openai-api-key
 4. **Run the dev server**
 
 ```
-yarn dev
+pnpm dev
 ```
 
 ---
