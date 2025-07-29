@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-export const answerTool = tool({
+export const synthesisTool = tool({
   description: "Final structured recommendation after all analysis.",
   parameters: z.object({
     summary: z.string(),

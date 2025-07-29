@@ -53,7 +53,7 @@ export default function MoralCompassPage() {
 
       {result && (
         <div className="mt-10 space-y-6">
-          <h2 className="text-xl font-semibold">🔍 Tool Calls</h2>
+          {/* <h2 className="text-xl font-semibold">🔍 Tool Calls</h2>
           <ul className="list-disc pl-5 space-y-2">
             {result.toolCalls?.map((tool: any, idx: number) => (
               <li key={idx}>
@@ -61,7 +61,39 @@ export default function MoralCompassPage() {
                 {tool.input?.decision || "[structured output]"}
               </li>
             ))}
-          </ul>
+          </ul> */}
+
+          {result.steps && (
+            <div className="space-y-6">
+              {/* Final Answer */}
+              <h2 className="text-xl font-semibold text-green-700">
+                ✅ Final Recommendation
+              </h2>
+              <div className="bg-green-50 border border-green-200 p-4 rounded">
+                <p>
+                  {result.steps[result.steps.length - 1]?.toolCalls?.[0]?.input
+                    ?.summary || "No synthesis output found."}
+                </p>
+              </div>
+
+              {/* Tool Calls Summary */}
+              <h2 className="text-xl font-semibold">🛠 Tool Calls</h2>
+              <ul className="list-disc pl-5 space-y-2">
+                {result.steps.map((step: any, idx: number) => (
+                  <li key={idx}>
+                    <strong>Step {idx + 1}:</strong>{" "}
+                    {step.toolCalls?.[0]?.tool || "LLM thought process"}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Full Debug */}
+              <h2 className="text-xl font-semibold">🧠 Reasoning Steps</h2>
+              <pre className="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(result.steps, null, 2)}
+              </pre>
+            </div>
+          )}
 
           <h2 className="text-xl font-semibold">🧠 Reasoning Steps</h2>
           <pre className="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap">
