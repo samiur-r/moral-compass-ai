@@ -1,5 +1,6 @@
-import { tool } from "ai";
-import { z } from "zod";
+import { openai } from "@ai-sdk/openai";
+import { generateText, tool } from "ai";
+import z from "zod";
 
 export const lawTool = tool({
   description:
@@ -8,7 +9,32 @@ export const lawTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
-    // Replace with LLM call or RAG-enhanced logic
-    return `Legal agent review of: "${decision}"\n- Consider local labor laws, zoning, international trade implications, and risk of litigation.\n- Recommend legal consultation before action.`;
+    const { text } = await generateText({
+      model: openai("gpt-4.1-nano"),
+      maxTokens: 500,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a legal analyst AI. Given a business decision, analyze the relevant legal concerns.",
+        },
+        {
+          role: "user",
+          content: `
+Decision: "${decision}"
+
+Respond with:
+- Potential legal risks (e.g. zoning, contracts, international trade)
+- Labor law issues
+- Risk of litigation
+- Any regulations that may apply
+- Recommend whether legal review is needed
+          `.trim(),
+        },
+      ],
+    });
+
+    return text;
   },
 });

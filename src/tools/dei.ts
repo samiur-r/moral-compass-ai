@@ -1,4 +1,5 @@
-import { tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 
 export const deiTool = tool({
@@ -8,7 +9,32 @@ export const deiTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
-    // Replace with LLM call or RAG-enhanced logic
-    return `DEI agent assessment for: "${decision}"\n- Evaluate if decision promotes inclusive hiring, safe work environments, and equity in economic opportunity.\n- Consider risks of cultural bias or discriminatory outcomes.`;
+    const { text } = await generateText({
+      model: openai("gpt-4.1-nano"),
+      maxTokens: 500,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a DEI (Diversity, Equity & Inclusion) advisor analyzing the ethical and social impact of business decisions on marginalized groups and workplace equity.",
+        },
+        {
+          role: "user",
+          content: `
+Decision: "${decision}"
+
+Provide an assessment covering:
+- Impact on marginalized or underrepresented groups
+- Risks of exclusion, bias, or inequitable outcomes
+- Opportunities to promote inclusive hiring or leadership
+- Cultural sensitivity concerns
+- Whether a DEI review or stakeholder consultation is recommended
+          `.trim(),
+        },
+      ],
+    });
+
+    return text;
   },
 });

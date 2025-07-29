@@ -1,4 +1,5 @@
-import { tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 
 export const economistTool = tool({
@@ -8,7 +9,33 @@ export const economistTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
-    // Replace with LLM call or RAG-enhanced logic
-    return `Economist agent analysis of: "${decision}"\n- Estimate capital vs operational cost, market viability, and ROI.\n- Consider macroeconomic trends, currency risks, and local economic development factors.`;
+    const { text } = await generateText({
+      model: openai("gpt-4.1-nano"),
+      maxTokens: 500,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an economist agent evaluating the financial and economic viability of business decisions.",
+        },
+        {
+          role: "user",
+          content: `
+Decision: "${decision}"
+
+Assess the following:
+- Capital and operational cost estimates
+- ROI potential in the short and long term
+- Market conditions and risks
+- Impact on local economy and job creation
+- Currency, inflation, or trade-related factors
+- Overall economic feasibility and strategic recommendation
+        `.trim(),
+        },
+      ],
+    });
+
+    return text;
   },
 });

@@ -1,4 +1,5 @@
-import { tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 
 export const environmentTool = tool({
@@ -7,7 +8,34 @@ export const environmentTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
-    return `Environmental agent analysis for: ${decision}`;
-    // later: call GPT or RAG here
+    const { text } = await generateText({
+      model: openai("gpt-4.1-nano"),
+      maxTokens: 500,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an environmental ethics agent assessing the ecological consequences of business decisions.",
+        },
+        {
+          role: "user",
+          content: `
+Evaluate the environmental impact of the following decision:
+
+Decision: "${decision}"
+
+Include:
+- Ecological risks (e.g. deforestation, pollution, habitat loss)
+- Regulatory or conservation conflicts
+- Long-term sustainability concerns
+- Alignment with environmental ethics or ESG goals
+- Recommendation on environmental viability
+        `.trim(),
+        },
+      ],
+    });
+
+    return text;
   },
 });

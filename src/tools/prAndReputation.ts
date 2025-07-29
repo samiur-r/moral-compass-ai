@@ -1,4 +1,5 @@
-import { tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 
 export const prAndReputationTool = tool({
@@ -8,15 +9,32 @@ export const prAndReputationTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
-    return `
-📣 PR & Reputation Analysis of: "${decision}"
+    const { text } = await generateText({
+      model: openai("gpt-4.1-nano"),
+      maxTokens: 500,
+      temperature: 0.5,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a PR & reputation strategist AI. Analyze public, media, and stakeholder perception of business decisions.",
+        },
+        {
+          role: "user",
+          content: `
+Decision: "${decision}"
 
-- How might the general public, customers, media, or investors interpret this decision?
-- Are there risks of reputational damage, public backlash, or misalignment with brand values?
-- Does this decision support or contradict public commitments (e.g., ESG, diversity, transparency)?
-- Would this require a communication plan or proactive press strategy?
+Analyze:
+- How the public, media, customers, and investors might interpret this decision
+- Any potential for reputational damage, backlash, or value misalignment
+- Whether this contradicts prior public commitments (e.g., ESG, diversity, transparency)
+- If it requires a PR mitigation or communication plan
+- Provide a recommendation
+          `.trim(),
+        },
+      ],
+    });
 
-🧭 Recommendation: Proceed with clear messaging if aligned, or prepare a PR mitigation plan.
-    `.trim();
+    return text;
   },
 });
