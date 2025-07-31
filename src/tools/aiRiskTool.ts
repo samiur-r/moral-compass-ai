@@ -22,8 +22,8 @@ export const aiRiskTool = tool({
           role: "system",
           content: `
             You are an AI Risk Advisor. Use ONLY the provided evidence
-            to ground your answer. Cite like [#1], [#2] etc.
-
+            to ground your answer.
+            
             --- evidence ---
             ${contextText}
             --- end evidence ---

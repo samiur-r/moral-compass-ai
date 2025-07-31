@@ -1,6 +1,7 @@
 import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { Pinecone } from "@pinecone-database/pinecone";
+
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
 const index = pc
   .index(process.env.PINECONE_INDEX || "moral-compass-ai")

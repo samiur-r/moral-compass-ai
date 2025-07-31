@@ -1,6 +1,6 @@
+import dotenv from "dotenv";
 import { embedMany } from "ai";
 import { openai } from "@ai-sdk/openai";
-import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import fs from "node:fs/promises";
 import path from "node:path";
