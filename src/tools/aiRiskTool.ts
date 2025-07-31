@@ -1,3 +1,4 @@
+import { retrieveEvidence } from "@/lib/pinecone";
 import { openai } from "@ai-sdk/openai";
 import { generateText, tool } from "ai";
 import z from "zod";
@@ -9,6 +10,9 @@ export const aiRiskTool = tool({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
+    const evidence = await retrieveEvidence(decision, 5);
+    const contextText = evidence.map((e) => `${e.id} ${e.text}`).join("\n\n");
+
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
       maxTokens: 500,
@@ -16,8 +20,14 @@ export const aiRiskTool = tool({
       messages: [
         {
           role: "system",
-          content:
-            "You are an AI Risk Advisor. Analyze the following decision from the perspective of automation, AI ethics, and regulatory concerns.",
+          content: `
+            You are an AI Risk Advisor. Use ONLY the provided evidence
+            to ground your answer. Cite like [#1], [#2] etc.
+
+            --- evidence ---
+            ${contextText}
+            --- end evidence ---
+                      `.trim(),
         },
         {
           role: "user",
