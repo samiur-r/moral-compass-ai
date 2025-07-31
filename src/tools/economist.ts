@@ -11,7 +11,7 @@ export const economistTool = tool({
   execute: async ({ decision }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 500,
+      maxTokens: 250,
       temperature: 0.5,
       messages: [
         {

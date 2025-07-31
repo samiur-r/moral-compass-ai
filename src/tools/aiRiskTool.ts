@@ -5,7 +5,7 @@ import z from "zod";
 
 export const aiRiskTool = tool({
   description:
-    "AI risk advisor. Assesses automation, algorithmic bias, and explainability in tech decisions.",
+    "Use this tool if the decision involves AI, algorithms, automation, or digital systems that may create risks around bias, explainability, fairness, or regulation.",
   parameters: z.object({
     decision: z.string(),
   }),
@@ -15,7 +15,7 @@ export const aiRiskTool = tool({
 
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 500,
+      maxTokens: 250,
       temperature: 0.5,
       messages: [
         {
@@ -23,7 +23,7 @@ export const aiRiskTool = tool({
           content: `
             You are an AI Risk Advisor. Use ONLY the provided evidence
             to ground your answer.
-            
+
             --- evidence ---
             ${contextText}
             --- end evidence ---
