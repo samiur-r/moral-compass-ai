@@ -1,32 +1,21 @@
 "use client";
 
-import { useCompletion } from "ai/react";
 import { useState } from "react";
+// If you’re on AI SDK v5:
+import { useCompletion } from "@ai-sdk/react";
+// If you haven’t migrated yet, the old path "ai/react" still works on older versions.
 
 export default function MoralCompassPage() {
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [inputPrompt, setInputPrompt] = useState("");
 
-  const { complete } = useCompletion({
+  const { completion, complete, isLoading, error } = useCompletion({
     api: "/api/decision",
-    onResponse: async (response) => {
-      const data = await response.json();
-      setResult(data);
-    },
-    onError: (err) => {
-      console.error("Error:", err);
-      alert("Something went wrong.");
-    },
+    // (optional) streamProtocol: 'text' // defaults are fine for most cases
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setResult(null);
-
-    await complete(inputPrompt);
-    setLoading(false);
+    await complete(inputPrompt); // streams back into `completion`
   };
 
   return (
@@ -45,61 +34,28 @@ export default function MoralCompassPage() {
         <button
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          disabled={loading}
+          disabled={isLoading}
         >
-          {loading ? "Analyzing..." : "Run Moral Compass"}
+          {isLoading ? "Analyzing..." : "Run Moral Compass"}
         </button>
       </form>
 
-      {result && (
+      {/* Streamed text appears here */}
+      {completion && (
         <div className="mt-10 space-y-6">
-          {/* <h2 className="text-xl font-semibold">🔍 Tool Calls</h2>
-          <ul className="list-disc pl-5 space-y-2">
-            {result.toolCalls?.map((tool: any, idx: number) => (
-              <li key={idx}>
-                <strong>{tool.tool}:</strong>{" "}
-                {tool.input?.decision || "[structured output]"}
-              </li>
-            ))}
-          </ul> */}
-
-          {result.steps && (
-            <div className="space-y-6">
-              {/* Final Answer */}
-              <h2 className="text-xl font-semibold text-green-700">
-                ✅ Final Recommendation
-              </h2>
-              <div className="bg-green-50 border border-green-200 p-4 rounded">
-                <p>
-                  {result.steps[result.steps.length - 1]?.toolCalls?.[0]?.input
-                    ?.summary || "No synthesis output found."}
-                </p>
-              </div>
-
-              {/* Tool Calls Summary */}
-              <h2 className="text-xl font-semibold">🛠 Tool Calls</h2>
-              <ul className="list-disc pl-5 space-y-2">
-                {result.steps.map((step: any, idx: number) => (
-                  <li key={idx}>
-                    <strong>Step {idx + 1}:</strong>{" "}
-                    {step.toolCalls?.[0]?.tool || "LLM thought process"}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Full Debug */}
-              <h2 className="text-xl font-semibold">🧠 Reasoning Steps</h2>
-              <pre className="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(result.steps, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          <h2 className="text-xl font-semibold">🧠 Reasoning Steps</h2>
-          <pre className="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap">
-            {JSON.stringify(result.steps, null, 2)}
-          </pre>
+          <h2 className="text-xl font-semibold text-green-700">
+            ✅ Final Recommendation
+          </h2>
+          <div className="bg-green-50 border border-green-200 p-4 rounded whitespace-pre-wrap">
+            {completion}
+          </div>
         </div>
+      )}
+
+      {error && (
+        <p className="mt-6 text-red-600">
+          Something went wrong: {String(error)}
+        </p>
       )}
     </main>
   );
