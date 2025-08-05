@@ -5,13 +5,13 @@ import { z } from "zod";
 export const economistTool = tool({
   description:
     "An economic analyst agent. Considers cost-benefit, market conditions, local economic impact, and long-term ROI.",
-  parameters: z.object({
+  inputSchema: z.object({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 250,
+      maxOutputTokens: 250,
       temperature: 0.5,
       messages: [
         {

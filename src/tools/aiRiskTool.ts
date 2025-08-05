@@ -6,7 +6,7 @@ import z from "zod";
 export const aiRiskTool = tool({
   description:
     "Use this tool if the decision involves AI, algorithms, automation, or digital systems that may create risks around bias, explainability, fairness, or regulation.",
-  parameters: z.object({
+  inputSchema: z.object({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
@@ -15,7 +15,7 @@ export const aiRiskTool = tool({
 
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 250,
+      maxOutputTokens: 250,
       temperature: 0.5,
       messages: [
         {

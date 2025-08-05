@@ -4,13 +4,13 @@ import { z } from "zod";
 
 export const environmentTool = tool({
   description: "Environmental ethics expert. Analyze environmental impact.",
-  parameters: z.object({
+  inputSchema: z.object({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 250,
+      maxOutputTokens: 250,
       temperature: 0.5,
       messages: [
         {

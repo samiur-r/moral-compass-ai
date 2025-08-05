@@ -5,13 +5,13 @@ import { z } from "zod";
 export const prAndReputationTool = tool({
   description:
     "Public Relations & Brand Strategist. Evaluates how the decision may be perceived by the public, media, and stakeholders.",
-  parameters: z.object({
+  inputSchema: z.object({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 250,
+      maxOutputTokens: 250,
       temperature: 0.5,
       messages: [
         {

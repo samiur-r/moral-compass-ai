@@ -5,13 +5,13 @@ import { z } from "zod";
 export const deiTool = tool({
   description:
     "A Diversity, Equity & Inclusion expert agent. Evaluates how the decision impacts marginalized groups, workplace equity, and inclusive growth.",
-  parameters: z.object({
+  inputSchema: z.object({
     decision: z.string(),
   }),
   execute: async ({ decision }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 250,
+      maxOutputTokens: 250,
       temperature: 0.5,
       messages: [
         {

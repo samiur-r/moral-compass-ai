@@ -2,17 +2,37 @@ import { openai } from "@ai-sdk/openai";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 
+const AllowedTools = [
+  "environment",
+  "law",
+  "dei",
+  "economist",
+  "prAndReputation",
+  "publicHealth",
+  "aiRisk",
+] as const;
+
 export const synthesisTool = tool({
   description: "Final structured recommendation after all analysis.",
-  parameters: z.object({
+  inputSchema: z.object({
     summary: z.string(),
-    agentsUsed: z.array(z.string()),
+    agentsUsed: z.preprocess((v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === "string") {
+        try {
+          const parsed = JSON.parse(v);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {}
+        return v.split(/[,\s]+/).filter(Boolean);
+      }
+      return [];
+    }, z.array(z.enum(AllowedTools)).default([])),
     confidence: z.number().min(0).max(1),
   }),
   execute: async ({ summary, agentsUsed, confidence }) => {
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
-      maxTokens: 300,
+      maxOutputTokens: 300,
       temperature: 0.5,
       messages: [
         {
@@ -37,6 +57,10 @@ Please synthesize a brief, actionable recommendation that reflects multi-perspec
       ],
     });
 
-    return text;
+    return {
+      summary: text,
+      agentsUsed,
+      confidence,
+    };
   },
 });

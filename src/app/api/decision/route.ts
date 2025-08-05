@@ -1,6 +1,13 @@
-import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
-
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+  convertToModelMessages,
+  hasToolCall,
+  stepCountIs,
+  type UIMessage,
+} from "ai";
 import {
   environmentTool,
   lawTool,
@@ -11,98 +18,90 @@ import {
   aiRiskTool,
   synthesisTool,
 } from "@/tools";
+import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const { prompt } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
 
-  const result = streamText({
-    model: openai("gpt-4.1-nano"),
-    tools: {
-      environment: environmentTool,
-      law: lawTool,
-      dei: deiTool,
-      economist: economistTool,
-      prAndReputation: prAndReputationTool,
-      publicHealth: publicHealthTool,
-      aiRisk: aiRiskTool,
-      synthesis: synthesisTool,
+  const stream = createUIMessageStream<MoralMessage>({
+    execute: async ({ writer }) => {
+      const result = streamText({
+        model: openai("gpt-4.1-nano"),
+        tools: {
+          environment: environmentTool,
+          law: lawTool,
+          dei: deiTool,
+          economist: economistTool,
+          prAndReputation: prAndReputationTool,
+          publicHealth: publicHealthTool,
+          aiRisk: aiRiskTool,
+          synthesis: synthesisTool,
+        },
+        system: `
+          You are a Moral Compass AI that helps organizations evaluate ethical decisions.
+          Call only relevant tools. You MUST finish by calling 'synthesis' with { summary, agentsUsed, confidence }.
+          Do NOT hallucinate tool names.
+        `,
+        messages: convertToModelMessages(messages),
+        stopWhen: [hasToolCall("synthesis"), stepCountIs(8)],
+        toolChoice: "auto",
+        onError({ error }) {
+          console.error("stream error:", error);
+        },
+      });
+
+      writer.merge(result.toUIMessageStream());
+
+      (async () => {
+        for await (const part of result.fullStream) {
+          console.log(`part`, part);
+          if (part.type === "tool-call") {
+            writer.write({
+              type: "data-agent",
+              id: part.toolName,
+              data: {
+                tool: part.toolName,
+                status: "running",
+              } satisfies AgentData,
+            });
+          } else if (part.type === "tool-result") {
+            const toolResult: unknown =
+              (part as any).output ?? (part as any).result;
+
+            if (part.toolName === "synthesis") {
+              const synth: SynthesisData =
+                typeof toolResult === "string"
+                  ? { summary: toolResult, agentsUsed: [], confidence: 0 }
+                  : (toolResult as SynthesisData);
+
+              writer.write({
+                type: "data-synthesis",
+                id: "synthesis",
+                data: synth,
+              });
+            } else {
+              const out =
+                typeof toolResult === "string"
+                  ? toolResult
+                  : JSON.stringify(toolResult);
+
+              writer.write({
+                type: "data-agent",
+                id: part.toolName,
+                data: {
+                  tool: part.toolName,
+                  output: out,
+                  status: "done",
+                } satisfies AgentData,
+              });
+            }
+          }
+        }
+      })().catch(console.error);
     },
-    maxSteps: 8,
-    system: `
-      You are a Moral Compass AI that helps organizations evaluate ethical decisions.
-      You can consult specialized tools (lens agents) to simulate different perspectives.
-
-      Your task:
-      1. Read the decision
-      2. Call only relevant tools based on context
-      3. Use their outputs to synthesize a final recommendation
-      4. Finish by calling the 'synthesis' tool with:
-         - a 'summary' of the ethical findings,
-         - 'agentsUsed' as an ARRAY of tool names (e.g., ["law", "environment"]),
-         - 'confidence' as a number between 0 and 1
-
-      DO NOT hallucinate tool names. Only use tools provided.
-    `,
-    prompt: `Decision to evaluate: ${prompt}`,
   });
 
-  (async () => {
-    for await (const part of result.fullStream) {
-      switch (part.type) {
-        case "start-step":
-          console.log("→ step:start", { request: part.request });
-          break;
-        case "tool-call":
-          console.log("🔧 tool-call", {
-            id: part.toolCallId,
-            tool: part.toolName,
-            input: part.args,
-          });
-          break;
-        case "tool-result":
-          console.log("✅ tool-result", {
-            id: part.toolCallId,
-            tool: part.toolName,
-            output: part.result,
-          });
-          break;
-        case "finish-step":
-          console.log("✓ step:finish", {
-            usage: part.usage,
-            finishReason: part.finishReason,
-          });
-          break;
-        case "error":
-          console.error("⛔ stream error:", part.error);
-          break;
-      }
-    }
-  })().catch((e) => console.error("stream logger failed:", e));
-
-  // --- STRUCTURED SUMMARY (after finish) ---
-  result.steps
-    .then((steps) => {
-      console.log("—— steps summary ——");
-      steps.forEach((s, i) => {
-        console.log(`Step #${i + 1} [${s.stepType}]`, {
-          text: s.text,
-          toolCalls:
-            s.toolCalls?.map((tc) => ({
-              tool: tc.toolName,
-              input: tc.args,
-            })) ?? [],
-          toolResults:
-            s.toolResults?.map((tr) => ({
-              tool: tr.toolName,
-              output: tr.result,
-            })) ?? [],
-          finishReason: s.finishReason,
-          usage: s.usage,
-        });
-      });
-    })
-    .catch((e) => console.error("failed to read steps:", e));
-
-  // Stream the assistant message to the client (works with useCompletion).
-  return result.toDataStreamResponse();
+  return createUIMessageStreamResponse({ stream });
 }
