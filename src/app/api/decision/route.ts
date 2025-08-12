@@ -33,11 +33,11 @@ export async function POST(req: Request) {
         tools: {
           environment: environmentTool,
           law: lawTool,
-          // dei: deiTool,
-          // economist: economistTool,
-          // prAndReputation: prAndReputationTool,
-          // publicHealth: publicHealthTool,
-          // aiRisk: aiRiskTool,
+          dei: deiTool,
+          economist: economistTool,
+          prAndReputation: prAndReputationTool,
+          publicHealth: publicHealthTool,
+          aiRisk: aiRiskTool,
           generatePdfLog: generatePdfLogTool,
           synthesis: synthesisTool,
         },
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         `,
         messages: convertToModelMessages(messages),
         // stopWhen: [hasToolCall("synthesis"), stepCountIs(6)],
-        stopWhen: [stepCountIs(5)],
+        stopWhen: [stepCountIs(10)],
         toolChoice: "auto",
         onError({ error }) {
           console.error("stream error:", error);

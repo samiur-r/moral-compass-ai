@@ -3,7 +3,6 @@ import { deflateSync, inflateSync } from "zlib";
 
 const SECRET = process.env.PDF_TOKEN_SECRET || "dev-only-insecure-secret";
 
-// Base64url helpers
 const b64url = (buf: Buffer) =>
   buf
     .toString("base64")
@@ -13,7 +12,6 @@ const b64url = (buf: Buffer) =>
 const fromB64url = (s: string) =>
   Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
 
-// Payload type
 export type PdfPayload = {
   decision: string;
   agentResults?: Record<string, string>;
@@ -22,7 +20,6 @@ export type PdfPayload = {
   exp?: number; // seconds since epoch
 };
 
-// Create signed, compressed token
 export function createPdfToken(
   data: Omit<PdfPayload, "exp">,
   ttlSec = 60 * 60
@@ -38,7 +35,6 @@ export function createPdfToken(
   return `${body}.${sig}`;
 }
 
-// Verify token and return payload (or null)
 export function verifyPdfToken(token: string): PdfPayload | null {
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
