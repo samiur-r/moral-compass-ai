@@ -19,11 +19,24 @@ import {
   synthesisTool,
   generatePdfLogTool,
 } from "@/tools";
+import { getClientId, limitChat, rateHeaders } from "@/lib/rateLimit";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  const key = `ip:${getClientId(req)}`;
+  const info = await limitChat(key);
+  if (!info.success) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded. Try again soon." }),
+      {
+        status: 429,
+        headers: rateHeaders(info),
+      }
+    );
+  }
+
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const stream = createUIMessageStream<MoralMessage>({
@@ -108,5 +121,8 @@ export async function POST(req: Request) {
     },
   });
 
-  return createUIMessageStreamResponse({ stream });
+  const res = createUIMessageStreamResponse({ stream });
+
+  rateHeaders(info).forEach((v, k) => res.headers.set(k, v));
+  return res;
 }
