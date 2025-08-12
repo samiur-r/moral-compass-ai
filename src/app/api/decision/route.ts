@@ -20,24 +20,68 @@ import {
   generatePdfLogTool,
 } from "@/tools";
 import { getClientId, limitChat, rateHeaders } from "@/lib/rateLimit";
+import {
+  extractUserText,
+  moderateText,
+  redactPII,
+  enforceSafeOutput,
+} from "@/lib/safety";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const key = `ip:${getClientId(req)}`;
-  const info = await limitChat(key);
-  if (!info.success) {
-    return new Response(
+  const rl = await limitChat(key);
+  if (!rl.success) {
+    const res = new Response(
       JSON.stringify({ error: "Rate limit exceeded. Try again soon." }),
       {
         status: 429,
-        headers: rateHeaders(info),
+        headers: rateHeaders(rl),
       }
     );
+    return res;
   }
 
   const { messages }: { messages: UIMessage[] } = await req.json();
+
+  // 1) INPUT SAFETY — moderate + sanitize the LAST user message
+  const rawUser = extractUserText(messages);
+  const userOk = await moderateText(rawUser);
+  if (!userOk.allowed) {
+    const res = new Response(
+      JSON.stringify({
+        error:
+          "Your prompt appears to violate our safety policy. Please rephrase and avoid harmful, illegal, or highly sensitive content.",
+        categories: userOk.categories ?? null,
+      }),
+      { status: 400 }
+    );
+    rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
+    return res;
+  }
+
+  // 2) Redact PII from the last user message (non-blocking)
+  const sanitized = redactPII(rawUser);
+  if (sanitized !== rawUser) {
+    // Replace only the most recent user text part with redacted text
+    const newMessages = [...messages];
+    for (let i = newMessages.length - 1; i >= 0; i--) {
+      const m = newMessages[i];
+      if (m.role === "user" && Array.isArray(m.content)) {
+        newMessages[i] = {
+          ...m,
+          content: m.content.map((p: any) =>
+            p.type === "text" ? { ...p, text: redactPII(p.text || "") } : p
+          ),
+        };
+        break;
+      }
+    }
+    // Use sanitized messages going forward
+    (messages as any) = newMessages;
+  }
 
   const stream = createUIMessageStream<MoralMessage>({
     execute: async ({ writer }) => {
@@ -122,7 +166,6 @@ export async function POST(req: Request) {
   });
 
   const res = createUIMessageStreamResponse({ stream });
-
-  rateHeaders(info).forEach((v, k) => res.headers.set(k, v));
+  rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
   return res;
 }
