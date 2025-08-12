@@ -6,3 +6,4 @@ export { publicHealthTool } from "./publicHealth";
 export { aiRiskTool } from "./aiRiskTool";
 export { prAndReputationTool } from "./prAndReputation";
 export { synthesisTool } from "./synthesis";
+export { generatePdfLogTool } from "./generatePdfLog";

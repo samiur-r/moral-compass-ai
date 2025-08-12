@@ -17,6 +17,7 @@ import {
   publicHealthTool,
   aiRiskTool,
   synthesisTool,
+  generatePdfLogTool,
 } from "@/tools";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
@@ -32,20 +33,24 @@ export async function POST(req: Request) {
         tools: {
           environment: environmentTool,
           law: lawTool,
-          dei: deiTool,
-          economist: economistTool,
-          prAndReputation: prAndReputationTool,
-          publicHealth: publicHealthTool,
-          aiRisk: aiRiskTool,
+          // dei: deiTool,
+          // economist: economistTool,
+          // prAndReputation: prAndReputationTool,
+          // publicHealth: publicHealthTool,
+          // aiRisk: aiRiskTool,
+          generatePdfLog: generatePdfLogTool,
           synthesis: synthesisTool,
         },
         system: `
           You are a Moral Compass AI that helps organizations evaluate ethical decisions.
-          Call only relevant tools. You MUST finish by calling 'synthesis' with { summary, agentsUsed, confidence }.
+          Call only relevant tools based on the decision context.
+          You MUST finish by calling the 'synthesis' tool with { summary, agentsUsed, confidence }
+          After synthesis is complete, you SHOULD call the 'generatePdfLog' tool to create a downloadable report.
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        stopWhen: [hasToolCall("synthesis"), stepCountIs(8)],
+        // stopWhen: [hasToolCall("synthesis"), stepCountIs(6)],
+        stopWhen: [stepCountIs(5)],
         toolChoice: "auto",
         onError({ error }) {
           console.error("stream error:", error);
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
 
       (async () => {
         for await (const part of result.fullStream) {
-          console.log(`part`, part);
+          // console.log(`part`, part);
           if (part.type === "tool-call") {
             writer.write({
               type: "data-agent",

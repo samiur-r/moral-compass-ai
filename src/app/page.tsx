@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
@@ -104,7 +104,21 @@ export default function MoralCompassPage() {
                 {agent.status === "running" ? "• running…" : ""}
               </div>
               {agent.output && (
-                <pre className="whitespace-pre-wrap mt-2">{agent.output}</pre>
+                <div className="mt-2">
+                  {agent.tool === "generatePdfLog" &&
+                  agent.output.startsWith("/api/log-pdf") ? (
+                    <a
+                      href={agent.output}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline"
+                    >
+                      📄 Download Decision Log (PDF)
+                    </a>
+                  ) : (
+                    <pre className="whitespace-pre-wrap">{agent.output}</pre>
+                  )}
+                </div>
               )}
             </div>
           ))}
