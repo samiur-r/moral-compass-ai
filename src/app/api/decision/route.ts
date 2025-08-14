@@ -85,11 +85,11 @@ export async function POST(req: Request) {
         tools: {
           environment: environmentTool,
           law: lawTool,
-          // dei: deiTool,
-          // economist: economistTool,
-          // prAndReputation: prAndReputationTool,
-          // publicHealth: publicHealthTool,
-          // aiRisk: aiRiskTool,
+          dei: deiTool,
+          economist: economistTool,
+          prAndReputation: prAndReputationTool,
+          publicHealth: publicHealthTool,
+          aiRisk: aiRiskTool,
           generatePdfLog: generatePdfLogTool,
           synthesis: synthesisTool,
         },
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        stopWhen: [stepCountIs(6)],
+        stopWhen: [stepCountIs(10)],
         toolChoice: "auto",
         onError({ error }) {
           console.error("stream error:", error);
