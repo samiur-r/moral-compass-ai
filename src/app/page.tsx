@@ -401,7 +401,7 @@ function markdownToHtmlSafe(md: string): string {
     .split(/\n\n+/)
     .map(function (block) {
       if (/^(\s*[-*+]\s+)/.test(block)) {
-        var items = block
+        const items = block
           .split(/\n/)
           .map(function (l) {
             return l.replace(/^\s*[-*+]\s+/, "").trim();
@@ -414,7 +414,7 @@ function markdownToHtmlSafe(md: string): string {
         return '<ul class="list-disc pl-5">' + items + "</ul>";
       }
       if (/^(\s*\d+[\.\])]\s+)/.test(block)) {
-        var items2 = block
+        const items2 = block
           .split(/\n/)
           .map(function (l) {
             return l.replace(/^\s*\d+[\.\)]\s+/, "").trim();

@@ -7,6 +7,13 @@ const index = pc
   .index(process.env.PINECONE_INDEX || "moral-compass-ai")
   .namespace("__default__");
 
+type DocMetadata = {
+  text: string;
+  url?: string;
+  doc_id?: string;
+  domain?: string;
+};
+
 export async function retrieveEvidence(query: string, topK = 5) {
   const { embedding } = await embed({
     model: openai.embedding("text-embedding-3-small"),
@@ -21,7 +28,7 @@ export async function retrieveEvidence(query: string, topK = 5) {
   });
 
   return (res.matches ?? []).map((m, i) => {
-    const md: any = m.metadata;
+    const md = (m.metadata ?? {}) as Partial<DocMetadata>;
     return {
       id: `[#${i + 1}]`,
       text: md.text as string,

@@ -56,21 +56,26 @@ export async function POST(req: Request) {
   }
 
   const sanitized = redactPII(rawUser);
+
+  const isTextPart = (p: {
+    type: string;
+  }): p is { type: "text"; text: string } => p.type === "text";
+
   if (sanitized !== rawUser) {
     const newMessages = [...messages];
     for (let i = newMessages.length - 1; i >= 0; i--) {
       const m = newMessages[i];
-      if (m.role === "user" && Array.isArray(m.content)) {
+      if (m.role === "user") {
         newMessages[i] = {
           ...m,
-          content: m.content.map((p: any) =>
-            p.type === "text" ? { ...p, text: redactPII(p.text || "") } : p
+          parts: m.parts.map((p) =>
+            isTextPart(p) ? { ...p, text: redactPII(p.text || "") } : p
           ),
         };
         break;
       }
     }
-    (messages as any) = newMessages;
+    (messages as unknown as UIMessage[]) = newMessages;
   }
 
   const stream = createUIMessageStream<MoralMessage>({
@@ -80,11 +85,11 @@ export async function POST(req: Request) {
         tools: {
           environment: environmentTool,
           law: lawTool,
-          dei: deiTool,
-          economist: economistTool,
-          prAndReputation: prAndReputationTool,
-          publicHealth: publicHealthTool,
-          aiRisk: aiRiskTool,
+          // dei: deiTool,
+          // economist: economistTool,
+          // prAndReputation: prAndReputationTool,
+          // publicHealth: publicHealthTool,
+          // aiRisk: aiRiskTool,
           generatePdfLog: generatePdfLogTool,
           synthesis: synthesisTool,
         },
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        stopWhen: [stepCountIs(10)],
+        stopWhen: [stepCountIs(6)],
         toolChoice: "auto",
         onError({ error }) {
           console.error("stream error:", error);
@@ -117,8 +122,15 @@ export async function POST(req: Request) {
               } satisfies AgentData,
             });
           } else if (part.type === "tool-result") {
+            type ToolResultPart = {
+              output?: unknown;
+              result?: unknown;
+              toolName: string;
+            };
+
             const toolResult: unknown =
-              (part as any).output ?? (part as any).result;
+              (part as ToolResultPart).output ??
+              (part as ToolResultPart).result;
 
             if (part.toolName === "synthesis") {
               const synth: SynthesisData =

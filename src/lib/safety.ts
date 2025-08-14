@@ -23,10 +23,12 @@ export function redactPII(text: string): string {
   );
 }
 
+export type ModerationCategories = Record<string, boolean>;
+
 /** Run OpenAI moderation on text. Returns { allowed, categories }. */
 export async function moderateText(
   text: string
-): Promise<{ allowed: boolean; categories?: any }> {
+): Promise<{ allowed: boolean; categories?: ModerationCategories }> {
   // Empty/short text: allow
   if (!text || !text.trim()) return { allowed: true };
 
@@ -38,7 +40,15 @@ export async function moderateText(
 
   const result = res.results?.[0];
   const flagged = result?.flagged ?? false;
-  return { allowed: !flagged, categories: result?.categories };
+
+  const categories: ModerationCategories | undefined =
+    result &&
+    typeof result.categories === "object" &&
+    result.categories !== null
+      ? (result.categories as unknown as Record<string, boolean>)
+      : undefined;
+
+  return { allowed: !flagged, categories };
 }
 
 /** Decide what to do when moderation flags synthesis output. */
@@ -52,7 +62,7 @@ export async function enforceSafeOutput(summary: string): Promise<string> {
 
 /** Build a short text blob of the latest user content for input moderation. */
 export function extractUserText(
-  messages: Array<{ role: string; content?: any }>
+  messages: Array<{ role: string; content?: unknown }>
 ): string {
   // Grab the last user message’s plain text parts
   const lastUser = [...messages].reverse().find((m) => m.role === "user");

@@ -87,12 +87,14 @@ function createLimiter(
 export const limitChat = createLimiter(20, "10 m", "chat"); // 20 / 10min per client
 export const limitPdf = createLimiter(5, "1 m", "pdf"); // 5 / 1min per client
 
+type RequestWithIp = Request & { ip?: string | null };
+
 // ---- utilities ----
-export function getClientId(req: Request) {
+export function getClientId(req: RequestWithIp) {
   const xf = req.headers.get("x-forwarded-for");
   if (xf) return xf.split(",")[0].trim();
-  // NextRequest sometimes exposes .ip
-  const ip = (req as any).ip as string | undefined;
+
+  const ip = req.ip as string | undefined;
   if (ip) return ip;
   const ua = req.headers.get("user-agent") ?? "unknown";
   return `anon:${ua.slice(0, 80)}`;
