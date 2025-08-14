@@ -5,8 +5,6 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
-// Tailwind-only, no external UI/libs
-
 export default function MoralCompassPage() {
   const [input, setInput] = useState("");
 
@@ -79,7 +77,6 @@ export default function MoralCompassPage() {
 
   return (
     <main className="max-w-3xl mx-auto py-10 px-4 md:px-6">
-      {/* Header */}
       <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-sm">
         <div className="p-6 md:p-7">
           <div className="flex items-center gap-3">
@@ -97,8 +94,6 @@ export default function MoralCompassPage() {
           </div>
         </div>
       </section>
-
-      {/* Composer */}
       <section className="mt-8">
         <div className="rounded-2xl border bg-white shadow-sm dark:bg-neutral-900 dark:border-neutral-800">
           <div className="px-5 pt-5 pb-3 flex items-center justify-between">
@@ -146,8 +141,6 @@ export default function MoralCompassPage() {
           </div>
         </div>
       </section>
-
-      {/* Error */}
       {error && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">
           <div className="flex items-start gap-3">
@@ -159,8 +152,6 @@ export default function MoralCompassPage() {
           </div>
         </div>
       )}
-
-      {/* Empty state */}
       {!error &&
         agentParts.length === 0 &&
         !synthesis &&
@@ -173,8 +164,6 @@ export default function MoralCompassPage() {
             </p>
           </div>
         )}
-
-      {/* Agents (no height clamp so full output shows) */}
       {agentParts.length > 0 && (
         <section className="mt-8">
           <div className="mb-3 flex items-center gap-2">
@@ -194,8 +183,6 @@ export default function MoralCompassPage() {
           </div>
         </section>
       )}
-
-      {/* Synthesis running */}
       {synthesisIsRunning && (
         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <div className="flex items-center gap-2">
@@ -207,8 +194,6 @@ export default function MoralCompassPage() {
           </p>
         </div>
       )}
-
-      {/* Synthesis ready */}
       {synthesis && (
         <section className="mt-8">
           <div className="rounded-2xl border border-green-200 bg-white p-5 shadow-sm dark:bg-neutral-900 dark:border-green-900/40">
@@ -251,10 +236,6 @@ export default function MoralCompassPage() {
     </main>
   );
 }
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Subcomponents (Tailwind-only)
-// ────────────────────────────────────────────────────────────────────────────────
 
 function AgentCard({
   agent,
@@ -336,12 +317,9 @@ function OutputBlock({ text }: { text: string }) {
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
-    } catch {
-      // noop
-    }
+    } catch {}
   };
 
-  // Render Markdown safely (very small subset) without external libs
   const html = markdownToHtmlSafe(text);
 
   return (
@@ -376,13 +354,11 @@ function OutputBlock({ text }: { text: string }) {
   );
 }
 
-// minimal, safe-ish markdown renderer (headings, bold/italic, lists, code)
 function markdownToHtmlSafe(md: string): string {
   if (!md) return "";
-  // 1) escape
+
   let s = md.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // 2) fenced code blocks ```
   s = s.replace(/```([\s\S]*?)```/g, function (_match, code) {
     return (
       '<pre class="rounded-xl bg-neutral-50 dark:bg-neutral-800 p-3 overflow-x-auto"><code>' +
@@ -394,17 +370,14 @@ function markdownToHtmlSafe(md: string): string {
     );
   });
 
-  // 3) inline code `code`
   s = s.replace(
     /`([^`]+)`/g,
     '<code class="rounded bg-neutral-100 dark:bg-neutral-800 px-1">$1</code>'
   );
 
-  // 4) bold then italics
   s = s.replace(/(\*\*|__)(.*?)\1/g, "<strong>$2</strong>");
   s = s.replace(/(\*|_)(.*?)\1/g, "<em>$2</em>");
 
-  // 5) headings
   s = s.replace(
     /^######\s+(.+)$/gm,
     '<h6 class="mt-4 mb-1 font-semibold">$1</h6>'
@@ -424,7 +397,6 @@ function markdownToHtmlSafe(md: string): string {
   s = s.replace(/^##\s+(.+)$/gm, '<h2 class="mt-4 mb-1 font-semibold">$1</h2>');
   s = s.replace(/^#\s+(.+)$/gm, '<h1 class="mt-4 mb-1 font-semibold">$1</h1>');
 
-  // 6) lists (unordered and ordered) — group consecutive lines
   s = s
     .split(/\n\n+/)
     .map(function (block) {

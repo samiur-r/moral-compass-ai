@@ -4,7 +4,6 @@ import {
   createUIMessageStreamResponse,
   streamText,
   convertToModelMessages,
-  hasToolCall,
   stepCountIs,
   type UIMessage,
 } from "ai";
@@ -20,12 +19,7 @@ import {
   generatePdfLogTool,
 } from "@/tools";
 import { getClientId, limitChat, rateHeaders } from "@/lib/rateLimit";
-import {
-  extractUserText,
-  moderateText,
-  redactPII,
-  enforceSafeOutput,
-} from "@/lib/safety";
+import { extractUserText, moderateText, redactPII } from "@/lib/safety";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
 export const maxDuration = 60;
@@ -46,7 +40,6 @@ export async function POST(req: Request) {
 
   const { messages }: { messages: UIMessage[] } = await req.json();
 
-  // 1) INPUT SAFETY — moderate + sanitize the LAST user message
   const rawUser = extractUserText(messages);
   const userOk = await moderateText(rawUser);
   if (!userOk.allowed) {
@@ -62,10 +55,8 @@ export async function POST(req: Request) {
     return res;
   }
 
-  // 2) Redact PII from the last user message (non-blocking)
   const sanitized = redactPII(rawUser);
   if (sanitized !== rawUser) {
-    // Replace only the most recent user text part with redacted text
     const newMessages = [...messages];
     for (let i = newMessages.length - 1; i >= 0; i--) {
       const m = newMessages[i];
@@ -79,7 +70,6 @@ export async function POST(req: Request) {
         break;
       }
     }
-    // Use sanitized messages going forward
     (messages as any) = newMessages;
   }
 
@@ -106,7 +96,6 @@ export async function POST(req: Request) {
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        // stopWhen: [hasToolCall("synthesis"), stepCountIs(10)],
         stopWhen: [stepCountIs(10)],
         toolChoice: "auto",
         onError({ error }) {
@@ -118,7 +107,6 @@ export async function POST(req: Request) {
 
       (async () => {
         for await (const part of result.fullStream) {
-          // console.log(`part`, part);
           if (part.type === "tool-call") {
             writer.write({
               type: "data-agent",
