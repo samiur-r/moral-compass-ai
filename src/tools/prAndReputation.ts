@@ -17,7 +17,7 @@ export const prAndReputationTool = tool({
         {
           role: "system",
           content:
-            "You are a PR & reputation strategist AI. Analyze public, media, and stakeholder perception of business decisions.",
+            "You are a PR & reputation strategist AI. Analyze public, media, and stakeholder perception of business decisions. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -30,6 +30,7 @@ Analyze:
 - Whether this contradicts prior public commitments (e.g., ESG, diversity, transparency)
 - If it requires a PR mitigation or communication plan
 - Provide a recommendation
+- Overall <= 180 words
           `.trim(),
         },
       ],

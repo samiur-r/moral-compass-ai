@@ -17,7 +17,7 @@ export const deiTool = tool({
         {
           role: "system",
           content:
-            "You are a DEI (Diversity, Equity & Inclusion) advisor analyzing the ethical and social impact of business decisions on marginalized groups and workplace equity.",
+            "You are a DEI (Diversity, Equity & Inclusion) advisor analyzing the ethical and social impact of business decisions on marginalized groups and workplace equity. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -30,6 +30,7 @@ Provide an assessment covering:
 - Opportunities to promote inclusive hiring or leadership
 - Cultural sensitivity concerns
 - Whether a DEI review or stakeholder consultation is recommended
+- Overall <= 180 words
           `.trim(),
         },
       ],

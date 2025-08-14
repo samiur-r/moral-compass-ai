@@ -22,7 +22,7 @@ export const aiRiskTool = tool({
           role: "system",
           content: `
             You are an AI Risk Advisor. Use ONLY the provided evidence
-            to ground your answer.
+            to ground your answer. Be concise and practical. Do not use Markdown.
 
             --- evidence ---
             ${contextText}
@@ -40,6 +40,7 @@ Respond with:
 - Transparency and explainability concerns
 - Relevant regulations (e.g., EU AI Act, GDPR, FTC guidance)
 - Whether external AI audit or risk mitigation is advised
+- Overall <= 180 words
           `.trim(),
         },
       ],

@@ -17,7 +17,7 @@ export const economistTool = tool({
         {
           role: "system",
           content:
-            "You are an economist agent evaluating the financial and economic viability of business decisions.",
+            "You are an economist agent evaluating the financial and economic viability of business decisions. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -31,6 +31,7 @@ Assess the following:
 - Impact on local economy and job creation
 - Currency, inflation, or trade-related factors
 - Overall economic feasibility and strategic recommendation
+- Overall <= 180 words
         `.trim(),
         },
       ],

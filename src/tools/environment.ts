@@ -16,7 +16,7 @@ export const environmentTool = tool({
         {
           role: "system",
           content:
-            "You are an environmental ethics agent assessing the ecological consequences of business decisions.",
+            "You are an environmental ethics agent assessing the ecological consequences of business decisions. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -31,6 +31,7 @@ Include:
 - Long-term sustainability concerns
 - Alignment with environmental ethics or ESG goals
 - Recommendation on environmental viability
+- Overall <= 180 words
         `.trim(),
         },
       ],

@@ -38,7 +38,7 @@ export const synthesisTool = tool({
         {
           role: "system",
           content:
-            "You are a decision ethics synthesizer AI. Your job is to summarize the final recommendation from multiple expert agent perspectives.",
+            "You are a decision ethics synthesizer AI. Your job is to summarize the final recommendation from multiple expert agent perspectives. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",

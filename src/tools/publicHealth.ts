@@ -17,7 +17,7 @@ export const publicHealthTool = tool({
         {
           role: "system",
           content:
-            "You are a public health ethics analyst AI. Assess the public and occupational health implications of a given decision.",
+            "You are a public health ethics analyst AI. Assess the public and occupational health implications of a given decision. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -30,6 +30,7 @@ Analyze:
 - Implications for long-term well-being, health equity, or infrastructure
 - If any formal Health Impact Assessment (HIA) is recommended
 - Provide a brief, structured analysis
+- Overall <= 180 words
           `.trim(),
         },
       ],

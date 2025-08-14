@@ -17,7 +17,7 @@ export const lawTool = tool({
         {
           role: "system",
           content:
-            "You are a legal analyst AI. Given a business decision, analyze the relevant legal concerns.",
+            "You are a legal analyst AI. Given a business decision, analyze the relevant legal concerns. Be concise and practical. Do not use Markdown.",
         },
         {
           role: "user",
@@ -30,6 +30,7 @@ Respond with:
 - Risk of litigation
 - Any regulations that may apply
 - Recommend whether legal review is needed
+- Overall <= 180 words
           `.trim(),
         },
       ],

@@ -106,7 +106,7 @@ export async function POST(req: Request) {
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        // stopWhen: [hasToolCall("synthesis"), stepCountIs(6)],
+        // stopWhen: [hasToolCall("synthesis"), stepCountIs(10)],
         stopWhen: [stepCountIs(10)],
         toolChoice: "auto",
         onError({ error }) {
