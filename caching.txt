@@ -1,0 +1,177 @@
+Caching & Performance Strategy
+
+  1. Semantic Caching for Similar Decisions
+
+  Implementation Approach:
+  - Create embeddings of user decisions using OpenAI's
+  text-embedding-3-small
+  - Store decision embeddings + agent responses in Redis with
+  semantic keys
+  - Use cosine similarity threshold (e.g., 0.85+) to detect
+  semantically similar decisions
+  - Cache both individual agent responses and synthesis results
+
+  Technical Details:
+  // Cache key structure: 
+  "semantic_cache:{agent}:{embedding_hash}"
+  // Store: { embedding: float[], response: string, timestamp: 
+  number, metadata: {} }
+
+  async function getCachedResponse(decision: string, agent: 
+  string) {
+    const embedding = await embed(decision);
+    const similarKeys = await findSimilarEmbeddings(embedding,
+  agent, threshold: 0.85);
+
+    if (similarKeys.length > 0) {
+      return getCachedResult(similarKeys[0]);
+    }
+    return null;
+  }
+
+  Benefits:
+  - ~70-80% cache hit rate for common business scenarios
+  - Sub-100ms response times for cached queries
+  - Significant cost reduction on OpenAI API calls
+
+  2. Multi-Level Response Caching with TTL
+
+  Caching Layers:
+
+  Level 1: Exact Match Cache (TTL: 24 hours)
+  - Hash decision text + agent combination
+  - Perfect matches return immediately
+  - Ideal for identical queries within same session
+
+  Level 2: Semantic Cache (TTL: 7 days)
+  - Embedding-based similarity matching
+  - Covers paraphrased or slightly modified decisions
+  - Longer TTL since business principles change slowly
+
+  Level 3: Partial Context Cache (TTL: 30 days)
+  - Cache common decision patterns by industry/domain
+  - Store reusable analysis components
+  - Mix cached insights with fresh context
+
+  Implementation Strategy:
+  // Hierarchical cache lookup
+  async function getAgentResponse(decision: string, agent: string,
+   context: Context) {
+    // Level 1: Exact match
+    let response = await
+  exactMatchCache.get(`${agent}:${hash(decision)}`);
+    if (response) return response;
+
+    // Level 2: Semantic similarity
+    response = await semanticCache.getSimilar(decision, agent,
+  0.85);
+    if (response) return response;
+
+    // Level 3: Generate new + cache
+    response = await generateResponse(decision, agent, context);
+    await cacheResponse(decision, agent, response);
+    return response;
+  }
+
+  3. Optimized Pinecone Query Strategies
+
+  Current Issues:
+  - Single namespace __default__ for all domains
+  - No query optimization based on decision type
+  - Fixed topK=5 regardless of complexity
+
+  Optimization Improvements:
+
+  A. Domain-Specific Namespaces:
+  // Separate namespaces for faster, focused retrieval
+  const namespaces = {
+    aiRisk: "ai_risk_evidence",
+    legal: "legal_precedents",
+    environment: "esg_frameworks",
+    economics: "market_data",
+    dei: "diversity_studies",
+    publicHealth: "health_guidelines",
+    pr: "reputation_cases"
+  };
+
+  B. Adaptive TopK Selection:
+  // Adjust retrieval count based on decision complexity
+  function getOptimalTopK(decision: string): number {
+    const wordCount = decision.split(' ').length;
+    const complexity = detectComplexity(decision); // regulatory 
+  mentions, stakeholder count, etc.
+
+    if (complexity === 'simple' && wordCount < 50) return 3;
+    if (complexity === 'moderate') return 5;
+    if (complexity === 'complex') return 8;
+    return 10; // maximum for very complex decisions
+  }
+
+  C. Query Enhancement:
+  // Enhance queries with extracted key terms
+  async function enhancedRetrieval(decision: string, domain: 
+  string) {
+    // Extract key entities and concepts
+    const keyTerms = await extractKeyTerms(decision);
+    const expandedQuery = `${decision} ${keyTerms.join(' ')}`;
+
+    // Multi-query retrieval for better coverage
+    const [mainResults, entityResults] = await Promise.all([
+      index.query({ query: decision, topK: 5 }),
+      index.query({ query: keyTerms.join(' '), topK: 3 })
+    ]);
+
+    return deduplicateAndRank([...mainResults, ...entityResults]);
+  }
+
+  D. Metadata Filtering:
+  // Add intelligent filtering for more relevant results
+  const filters = {
+    legal: { jurisdiction: detectJurisdiction(decision) },
+    environment: { framework: ["GRI", "SASB", "TCFD"] },
+    economics: { timeframe: getTimeframe(decision) },
+    aiRisk: { regulation: ["GDPR", "EU_AI_Act", "CCPA"] }
+  };
+
+  4. Performance Monitoring & Metrics
+
+  Key Metrics to Track:
+  - Cache hit rates by agent and decision type
+  - Average response times (cached vs fresh)
+  - Pinecone query performance and relevance scores
+  - Cost savings from caching
+
+  Implementation:
+  // Performance tracking
+  interface CacheMetrics {
+    hitRate: number;
+    avgResponseTime: number;
+    costSavings: number;
+    qualityScore: number; // user feedback on cached responses
+  }
+
+  // Real-time optimization
+  async function optimizePerformance() {
+    const metrics = await getCacheMetrics();
+
+    if (metrics.hitRate < 0.6) {
+      // Adjust similarity thresholds
+      adjustSemanticThreshold(metrics);
+    }
+
+    if (metrics.avgResponseTime > 2000) {
+      // Optimize Pinecone queries
+      optimizePineconeQueries();
+    }
+  }
+
+  Expected Performance Gains:
+  - 60-80% reduction in API costs for repeat/similar queries
+  - 3-5x faster response times for cached results
+  - Improved relevance through optimized retrieval
+  - Better scalability under high load
+
+  This caching strategy would transform the system from generating
+   fresh responses for every query to an intelligent, learning
+  system that improves performance over time while maintaining
+  response quality.

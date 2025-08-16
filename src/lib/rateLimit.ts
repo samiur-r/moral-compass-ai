@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { createHash } from "crypto";
 
 // ---- create Redis client from either UPSTASH_* or KV_* envs ----
 function makeRedis() {
@@ -83,21 +84,53 @@ function createLimiter(
   return memoryLimiter(limit, sec * 1000);
 }
 
-// ---- policies ----
-export const limitChat = createLimiter(20, "10 m", "chat"); // 20 / 10min per client
-export const limitPdf = createLimiter(5, "1 m", "pdf"); // 5 / 1min per client
+// ---- enhanced rate limiting policies ----
+// Basic chat limits - stricter than before
+export const limitChatBasic = createLimiter(5, "1 m", "chat-basic"); // 5 per minute
+export const limitChatBurst = createLimiter(20, "1 h", "chat-burst"); // 20 per hour
+export const limitChatDaily = createLimiter(100, "1 d", "chat-daily"); // 100 per day
+
+// Specialized limits
+export const limitPdf = createLimiter(3, "1 m", "pdf"); // Reduced from 5 to 3
+export const limitPinecone = createLimiter(10, "1 m", "pinecone"); // RAG queries
+export const limitExpensive = createLimiter(2, "1 m", "expensive"); // Complex operations
+
+// Legacy compatibility - keeping original function name but with new limits
+export const limitChat = limitChatBasic;
 
 type RequestWithIp = Request & { ip?: string | null };
 
-// ---- utilities ----
-export function getClientId(req: RequestWithIp) {
-  const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
+// ---- enhanced client identification ----
+function generateFingerprint(req: RequestWithIp): string {
+  const ua = req.headers.get("user-agent") ?? "";
+  const acceptLang = req.headers.get("accept-language") ?? "";
+  const acceptEnc = req.headers.get("accept-encoding") ?? "";
+  
+  // Create a hash of multiple request properties for better identification
+  const fingerprintData = `${ua}:${acceptLang}:${acceptEnc}`;
+  return createHash("sha256").update(fingerprintData).digest("hex").slice(0, 16);
+}
 
-  const ip = req.ip as string | undefined;
-  if (ip) return ip;
-  const ua = req.headers.get("user-agent") ?? "unknown";
-  return `anon:${ua.slice(0, 80)}`;
+export function getClientId(req: RequestWithIp): string {
+  // Primary: Use IP address from headers
+  const xf = req.headers.get("x-forwarded-for");
+  const clientIp = xf ? xf.split(",")[0].trim() : req.ip;
+  
+  if (clientIp && clientIp !== "unknown") {
+    return clientIp;
+  }
+  
+  // Fallback: Generate fingerprint from request headers
+  const fingerprint = generateFingerprint(req);
+  return `fp:${fingerprint}`;
+}
+
+export function getEnhancedClientId(req: RequestWithIp): string {
+  const baseId = getClientId(req);
+  const fingerprint = generateFingerprint(req);
+  
+  // Combine IP and fingerprint for more robust identification
+  return `${baseId}:${fingerprint}`;
 }
 
 export function rateHeaders(info: LimitResult) {
@@ -112,4 +145,60 @@ export function rateHeaders(info: LimitResult) {
     );
   }
   return h;
+}
+
+// ---- multi-tier rate limiting ----
+export interface MultiTierLimitResult {
+  success: boolean;
+  limit: number;
+  remaining: number;
+  reset: number;
+  tier: "basic" | "burst" | "daily";
+  message?: string;
+}
+
+export async function checkMultiTierLimits(
+  clientId: string
+): Promise<MultiTierLimitResult> {
+  // Check all tiers in order of strictness
+  const [basicResult, burstResult, dailyResult] = await Promise.all([
+    limitChatBasic(clientId),
+    limitChatBurst(clientId),
+    limitChatDaily(clientId),
+  ]);
+
+  // Return the most restrictive failing limit
+  if (!basicResult.success) {
+    return {
+      ...basicResult,
+      tier: "basic",
+      message: "Too many requests per minute. Please slow down.",
+    };
+  }
+
+  if (!burstResult.success) {
+    return {
+      ...burstResult,
+      tier: "burst",
+      message: "Hourly limit exceeded. Please try again later.",
+    };
+  }
+
+  if (!dailyResult.success) {
+    return {
+      ...dailyResult,
+      tier: "daily",
+      message: "Daily limit exceeded. Please try again tomorrow.",
+    };
+  }
+
+  // All limits passed - return the most restrictive remaining count
+  const mostRestrictive = [basicResult, burstResult, dailyResult].reduce(
+    (min, current) => (current.remaining < min.remaining ? current : min)
+  );
+
+  return {
+    ...mostRestrictive,
+    tier: "basic",
+  };
 }
