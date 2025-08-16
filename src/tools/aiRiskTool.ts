@@ -1,4 +1,5 @@
-import { retrieveEvidence } from "@/lib/pinecone";
+import { retrieveEvidence } from "@/lib/cachedPinecone";
+import { getCachedAgentResponse, setCachedAgentResponse } from "@/lib/agentCache";
 import { openai } from "@ai-sdk/openai";
 import { generateText, tool } from "ai";
 import z from "zod";
@@ -8,10 +9,25 @@ export const aiRiskTool = tool({
     "Use this tool if the decision involves AI, algorithms, automation, or digital systems that may create risks around bias, explainability, fairness, or regulation.",
   inputSchema: z.object({
     decision: z.string(),
+    clientId: z.string().optional(),
   }),
-  execute: async ({ decision }) => {
-    const evidence = await retrieveEvidence(decision, 5);
-    const contextText = evidence.map((e) => `${e.id} ${e.text}`).join("\n\n");
+  execute: async ({ decision, clientId }) => {
+    const startTime = Date.now();
+    
+    // Try to get cached response first
+    const cachedResponse = await getCachedAgentResponse({
+      decision,
+      agentType: "aiRisk",
+    });
+    
+    if (cachedResponse.hit && cachedResponse.data) {
+      console.log(`[AI_RISK] Cache hit, saved ${cachedResponse.data.costSaved.toFixed(4)} USD`);
+      return cachedResponse.data.response;
+    }
+    
+    // Cache miss - retrieve evidence and generate response
+    const evidenceResult = await retrieveEvidence(decision, 5, "aiRisk", clientId);
+    const contextText = evidenceResult.results.map((e) => `${e.id} ${e.text}`).join("\n\n");
 
     const { text } = await generateText({
       model: openai("gpt-4.1-nano"),
@@ -27,6 +43,8 @@ export const aiRiskTool = tool({
             --- evidence ---
             ${contextText}
             --- end evidence ---
+            
+            Evidence source: ${evidenceResult.cached ? 'cached' : 'fresh'} (${evidenceResult.queryTime}ms)
                       `.trim(),
         },
         {
@@ -45,6 +63,17 @@ Respond with:
         },
       ],
     });
+
+    // Cache the response for future use
+    const processingTime = Date.now() - startTime;
+    await setCachedAgentResponse(
+      {
+        decision,
+        agentType: "aiRisk",
+      },
+      text,
+      processingTime
+    );
 
     return text;
   },
