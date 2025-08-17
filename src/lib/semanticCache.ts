@@ -12,7 +12,7 @@ const cacheIndex = pc
 export class SemanticCache {
   private similarityThreshold = 0.85; // Cosine similarity threshold
 
-  async get(input: string): Promise<any | null> {
+  async get(input: string): Promise<unknown | null> {
     // Generate embedding for input
     const { embedding } = await embed({
       model: openai.embedding("text-embedding-3-small"),
@@ -49,7 +49,7 @@ export class SemanticCache {
     return null;
   }
 
-  async set(input: string, result: any): Promise<void> {
+  async set(input: string, result: unknown): Promise<void> {
     // Generate embedding for input
     const { embedding } = await embed({
       model: openai.embedding("text-embedding-3-small"),

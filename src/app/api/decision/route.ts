@@ -172,11 +172,14 @@ export async function POST(req: Request) {
       `⚡ CACHE: Returning cached conversation flow for similar query`
     );
 
+    // Type guard for cached flow structure
+    const flow = cachedFlow as { agentOutputs?: AgentData[]; synthesis?: SynthesisData };
+
     // Return cached full conversation flow as a stream
     const stream = createUIMessageStream<MoralMessage>({
       execute: async ({ writer }) => {
         // Replay all agent outputs from cache
-        for (const agentData of cachedFlow.agentOutputs || []) {
+        for (const agentData of flow.agentOutputs || []) {
           writer.write({
             type: "data-agent",
             id: agentData.tool,
@@ -185,11 +188,11 @@ export async function POST(req: Request) {
         }
 
         // Write the cached synthesis data
-        if (cachedFlow.synthesis) {
+        if (flow.synthesis) {
           writer.write({
             type: "data-synthesis",
             id: "synthesis",
-            data: cachedFlow.synthesis,
+            data: flow.synthesis,
           });
         }
       },
