@@ -8,7 +8,7 @@ import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 export default function MoralCompassPage() {
   const [input, setInput] = useState("");
 
-  const { messages, sendMessage, status, error } = useChat<MoralMessage>({
+  const { messages, sendMessage, setMessages, status, error } = useChat<MoralMessage>({
     transport: new DefaultChatTransport({ api: "/api/decision" }),
   });
 
@@ -59,10 +59,14 @@ export default function MoralCompassPage() {
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
       if (!input.trim() || isBusy) return;
+      
+      // Clear previous conversation for fresh prompt
+      setMessages([]);
+      
       await sendMessage({ text: input.trim() });
       setInput("");
     },
-    [input, isBusy, sendMessage]
+    [input, isBusy, sendMessage, setMessages]
   );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
