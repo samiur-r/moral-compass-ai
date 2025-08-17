@@ -4,7 +4,7 @@ import type { UIMessage } from "ai";
 // Create client (safe at module scope in serverless)
 const oa = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Input validation limits for test app
+// Input validation limits
 const INPUT_LIMITS = {
   MAX_PAYLOAD_SIZE: 20 * 1024, // 20KB (single prompt + metadata)
   MAX_MESSAGE_COUNT: 3,
@@ -70,12 +70,15 @@ export async function enforceSafeOutput(summary: string): Promise<string> {
 
 /** Build a short text blob of the latest user content for input moderation. */
 export function extractUserText(
-  messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }> }>
+  messages: Array<{
+    role: string;
+    parts?: Array<{ type: string; text?: string }>;
+  }>
 ): string {
   // Grab the last user message's plain text parts
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return "";
-  
+
   // UIMessage uses `parts` array, not `content`
   const parts = lastUser.parts ?? [];
   const text = parts
@@ -111,7 +114,8 @@ const INJECTION_PATTERNS = [
     risk: "high" as const,
   },
   {
-    pattern: /(?:act|behave|respond)\s+as\s+(?:a\s+different|an?)\s+(?:ai|assistant|character|person)/i,
+    pattern:
+      /(?:act|behave|respond)\s+as\s+(?:a\s+different|an?)\s+(?:ai|assistant|character|person)/i,
     name: "role_confusion",
     risk: "high" as const,
   },
@@ -126,13 +130,14 @@ const INJECTION_PATTERNS = [
     risk: "medium" as const,
   },
   {
-    pattern: /(?:override|bypass|disable|turn\s+off)\s+(?:safety|security|filter|guard)/i,
+    pattern:
+      /(?:override|bypass|disable|turn\s+off)\s+(?:safety|security|filter|guard)/i,
     name: "safety_bypass",
     risk: "high" as const,
   },
 ] as const;
 
-/** Validate request input size and structure for test app limits */
+/** Validate request input size and structure for app limits */
 export function validateInput(
   request: Request,
   messages: UIMessage[]
@@ -206,7 +211,7 @@ export function detectPromptInjection(text: string): InjectionResult {
   for (const { pattern, name, risk } of INJECTION_PATTERNS) {
     if (pattern.test(text)) {
       detectedPatterns.push(name);
-      
+
       // Update highest risk level
       if (risk === "high" || (risk === "medium" && highestRisk === "low")) {
         highestRisk = risk;

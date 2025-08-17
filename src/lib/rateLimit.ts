@@ -83,8 +83,8 @@ function createLimiter(
   return memoryLimiter(limit, sec * 1000);
 }
 
-// ---- policies (very restrictive for test app) ----
-export const limitChat = createLimiter(3, "10 m", "chat"); // 3 / 10min per client  
+// ---- policies (very restrictive) ----
+export const limitChat = createLimiter(3, "10 m", "chat"); // 3 / 10min per client
 export const limitChatDaily = createLimiter(5, "1 d", "chat-daily"); // 5 / day per client
 export const limitPdf = createLimiter(1, "1 m", "pdf"); // 1 / 1min per client
 export const limitPdfDaily = createLimiter(2, "1 d", "pdf-daily"); // 2 / day per client
@@ -100,7 +100,7 @@ export function getClientId(req: RequestWithIp) {
     return `ip:${primaryIp}`;
   }
 
-  // Secondary: Use direct IP 
+  // Secondary: Use direct IP
   const ip = req.ip as string | undefined;
   if (ip) return `ip:${ip}`;
 
@@ -108,12 +108,12 @@ export function getClientId(req: RequestWithIp) {
   const ua = req.headers.get("user-agent") ?? "unknown";
   const acceptLang = req.headers.get("accept-language") ?? "";
   const acceptEnc = req.headers.get("accept-encoding") ?? "";
-  
+
   // Create a simple hash-like identifier from headers
   const fingerprint = Buffer.from(`${ua}:${acceptLang}:${acceptEnc}`)
     .toString("base64")
     .slice(0, 16);
-  
+
   return `fp:${fingerprint}`;
 }
 
@@ -138,9 +138,10 @@ export async function checkMultipleLimits(
 
   // Both must succeed for overall success
   const success = shortTerm.success && daily.success;
-  
+
   // Find the most restrictive limit (least remaining time)
-  const restrictiveLimit = daily.remaining < shortTerm.remaining ? daily : shortTerm;
+  const restrictiveLimit =
+    daily.remaining < shortTerm.remaining ? daily : shortTerm;
 
   return {
     success,
@@ -151,25 +152,25 @@ export async function checkMultipleLimits(
 
 export function rateHeaders(info: LimitResult | MultiLimitResult) {
   const h = new Headers();
-  
+
   // Use restrictive limit for headers if MultiLimitResult
   const limit = "restrictiveLimit" in info ? info.restrictiveLimit : info;
-  
+
   h.set("RateLimit-Limit", String(limit.limit));
   h.set("RateLimit-Remaining", String(limit.remaining));
   h.set("RateLimit-Reset", String(limit.reset)); // unix seconds
-  
+
   if (!limit.success) {
     h.set(
       "Retry-After",
       String(Math.max(1, limit.reset - Math.floor(Date.now() / 1000)))
     );
   }
-  
+
   // Add additional context for multi-limit
   if ("limits" in info) {
     h.set("RateLimit-Policy", "multi-tier");
   }
-  
+
   return h;
 }
