@@ -44,29 +44,29 @@ export async function POST(req: Request) {
 
   const rl = await checkMultipleLimits(clientId, "chat");
 
-  if (!rl.success) {
-    const limitType = rl.limits.daily.success ? "short-term" : "daily";
+  // if (!rl.success) {
+  //   const limitType = rl.limits.daily.success ? "short-term" : "daily";
 
-    // Log rate limit violation
-    console.warn(
-      `🚫 RATE_LIMIT: ${timestamp} | Client: ${clientId} | Type: ${limitType} | Short: ${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} | Daily: ${rl.limits.daily.remaining}/${rl.limits.daily.limit}`
-    );
+  //   // Log rate limit violation
+  //   console.warn(
+  //     `🚫 RATE_LIMIT: ${timestamp} | Client: ${clientId} | Type: ${limitType} | Short: ${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} | Daily: ${rl.limits.daily.remaining}/${rl.limits.daily.limit}`
+  //   );
 
-    const res = new Response(
-      JSON.stringify({
-        error: `Rate limit exceeded (${limitType}). Please try again later.`,
-        limits: {
-          shortTerm: `${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} remaining`,
-          daily: `${rl.limits.daily.remaining}/${rl.limits.daily.limit} remaining`,
-        },
-      }),
-      {
-        status: 429,
-        headers: rateHeaders(rl),
-      }
-    );
-    return res;
-  }
+  //   const res = new Response(
+  //     JSON.stringify({
+  //       error: `Rate limit exceeded (${limitType}). Please try again later.`,
+  //       limits: {
+  //         shortTerm: `${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} remaining`,
+  //         daily: `${rl.limits.daily.remaining}/${rl.limits.daily.limit} remaining`,
+  //       },
+  //     }),
+  //     {
+  //       status: 429,
+  //       headers: rateHeaders(rl),
+  //     }
+  //   );
+  //   return res;
+  // }
 
   const { messages }: { messages: UIMessage[] } = await req.json();
 
@@ -173,7 +173,10 @@ export async function POST(req: Request) {
     );
 
     // Type guard for cached flow structure
-    const flow = cachedFlow as { agentOutputs?: AgentData[]; synthesis?: SynthesisData };
+    const flow = cachedFlow as {
+      agentOutputs?: AgentData[];
+      synthesis?: SynthesisData;
+    };
 
     // Return cached full conversation flow as a stream
     const stream = createUIMessageStream<MoralMessage>({

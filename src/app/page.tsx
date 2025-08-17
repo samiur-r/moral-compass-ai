@@ -8,9 +8,10 @@ import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 export default function MoralCompassPage() {
   const [input, setInput] = useState("");
 
-  const { messages, sendMessage, setMessages, status, error } = useChat<MoralMessage>({
-    transport: new DefaultChatTransport({ api: "/api/decision" }),
-  });
+  const { messages, sendMessage, setMessages, status, error } =
+    useChat<MoralMessage>({
+      transport: new DefaultChatTransport({ api: "/api/decision" }),
+    });
 
   const lastAi = useMemo(
     () => [...messages].reverse().find((m) => m.role === "assistant"),
@@ -59,10 +60,10 @@ export default function MoralCompassPage() {
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
       if (!input.trim() || isBusy) return;
-      
+
       // Clear previous conversation for fresh prompt
       setMessages([]);
-      
+
       await sendMessage({ text: input.trim() });
       setInput("");
     },
@@ -111,7 +112,7 @@ export default function MoralCompassPage() {
           <div className="px-5 pb-5">
             <form onSubmit={onSubmit} className="space-y-3" aria-live="polite">
               <textarea
-                placeholder="e.g. We are shifting part of our supply chain to a country with lower labor costs but weaker labor rights protections. What should we consider before making the move?"
+                placeholder="e.g. Our healthcare startup wants to deploy an AI diagnostic system that analyzes patient symptoms and medical history to automatically recommend treatments and medication dosages. The system would also use facial analysis to detect pain levels and emotional states. Should we proceed with this implementation?"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
@@ -119,27 +120,56 @@ export default function MoralCompassPage() {
                 rows={5}
                 className="w-full resize-y rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3.5 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
               />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-neutral-500">
-                  Be specific about constraints, stakeholders, and risks.
-                </p>
-                <button
-                  type="submit"
-                  disabled={isBusy || !input.trim()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60 disabled:hover:bg-indigo-600"
-                >
-                  {isBusy ? (
-                    <>
-                      <Spinner className="h-4 w-4" />
-                      <span>Analyzing…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>▶</span>
-                      <span>Run Moral Compass</span>
-                    </>
-                  )}
-                </button>
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs text-neutral-500 self-center">Quick test:</span>
+                  <button
+                    type="button"
+                    onClick={() => setInput("Our healthcare startup wants to deploy an AI diagnostic system that analyzes patient symptoms and medical history to automatically recommend treatments and medication dosages. The system would also use facial analysis to detect pain levels and emotional states. Should we proceed with this implementation?")}
+                    disabled={isBusy}
+                    className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:opacity-60 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300"
+                  >
+                    🏥 Healthcare AI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInput("Our manufacturing company is considering switching from renewable energy back to coal power to reduce costs by 30%. This would increase our carbon footprint significantly but improve short-term profitability. What are the long-term implications?")}
+                    disabled={isBusy}
+                    className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:opacity-60 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300"
+                  >
+                    🌱 Sustainability
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInput("We're planning to lay off 40% of our workforce across multiple states to cut costs during economic uncertainty. Some employees are protected under union contracts and others are remote workers in different jurisdictions. How should we approach this?")}
+                    disabled={isBusy}
+                    className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:opacity-60 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300"
+                  >
+                    💼 Workforce
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-neutral-500">
+                    Be specific about constraints, stakeholders, and risks.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={isBusy || !input.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60 disabled:hover:bg-indigo-600"
+                  >
+                    {isBusy ? (
+                      <>
+                        <Spinner className="h-4 w-4" />
+                        <span>Analyzing…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>▶</span>
+                        <span>Run Moral Compass</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
