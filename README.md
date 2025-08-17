@@ -34,12 +34,16 @@ A multi-agent AI that evaluates tough organizational decisions from **legal, eth
    - `redactPII()` — removes personal identifiers.
 3. **Rate limiting**
    - `limitChat()` uses IP-based keys to prevent abuse (configurable in `/lib/rateLimit`).
-4. **Tool orchestration** (`streamText`)
+4. **Semantic caching** 
+   - Checks for similar queries using vector similarity (0.85 threshold).
+   - **Cache hit**: Returns cached results in ~2-3 seconds.
+   - **Cache miss**: Proceeds to full processing.
+5. **Tool orchestration** (`streamText`)
    - Relevant agents run in parallel based on prompt content.
    - AI model: `gpt-4.1-nano` (configurable).
-5. **Synthesis Agent** combines results.
-6. **PDF log** (optional).
-7. **Streaming UI** updates agent cards as results arrive.
+6. **Synthesis Agent** combines results and caches complete conversation flow.
+7. **PDF log** (optional).
+8. **Streaming UI** updates agent cards as results arrive.
 
 ---
 
@@ -63,6 +67,30 @@ The **AI Risk Agent (`aiRiskTool`)** uses RAG with [Pinecone](https://www.pineco
 2. Evidence is injected into the system prompt as a context block.
 3. Model **must** base recommendations only on that evidence.
 4. This mitigates hallucination and anchors advice in verified sources.
+
+---
+
+## ⚡ Semantic Caching
+
+**Intelligent caching system that dramatically improves response times for similar decision queries using vector similarity.**
+
+**How it works:**
+1. **Vector Embedding**: User input is converted to embeddings using `text-embedding-3-small`
+2. **Similarity Search**: Pinecone searches the `cache` namespace for semantically similar queries
+3. **Smart Matching**: Queries with ≥85% similarity return cached results instantly
+4. **Full Replay**: Cached responses include complete agent conversation flow
+
+**Performance:**
+- **Cache Hit**: ~2-3 seconds (85%+ faster)
+- **Cache Miss**: ~15-20 seconds (normal processing + caching for future)
+- **Storage**: Vector-based indexing in existing Pinecone infrastructure
+
+**Example Similarity Matching:**
+- Original: *"AI hiring system with facial recognition"*
+- Similar: *"Automated recruitment AI using facial analysis"* ← **Cache Hit**
+- Different: *"Environmental impact of solar panels"* ← **Cache Miss**
+
+**📖 Detailed documentation**: See `.docs/semantic-caching.md`
 
 ---
 
@@ -118,7 +146,8 @@ We plan to replace customer support agents with an AI chatbot trained on custome
 - **Styling:** Tailwind CSS (utility-first)
 - **Orchestration:** `@ai-sdk` for multi-agent streaming
 - **LLM Provider:** OpenAI `gpt-4.1-nano` (configurable)
-- **Vector Store:** Pinecone (RAG for AI Risk Agent)
+- **Vector Store:** Pinecone (RAG for AI Risk Agent + semantic caching)
+- **Caching:** Semantic similarity caching with vector embeddings
 - **Rate Limiting:** Upstash Redis (via `/lib/rateLimit`)
 - **PDF Generation:** `generatePdfLogTool` for downloadable decision reports
 

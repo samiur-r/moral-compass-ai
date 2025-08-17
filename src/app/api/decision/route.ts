@@ -27,6 +27,7 @@ import {
   detectPromptInjection,
 } from "@/lib/safety";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
+import { semanticCache } from "@/lib/semanticCache";
 
 export const maxDuration = 60;
 
@@ -164,6 +165,41 @@ export async function POST(req: Request) {
     (messages as unknown as UIMessage[]) = newMessages;
   }
 
+  // Check semantic cache for similar decisions
+  const cachedFlow = await semanticCache.get(sanitized);
+  if (cachedFlow) {
+    console.log(
+      `⚡ CACHE: Returning cached conversation flow for similar query`
+    );
+
+    // Return cached full conversation flow as a stream
+    const stream = createUIMessageStream<MoralMessage>({
+      execute: async ({ writer }) => {
+        // Replay all agent outputs from cache
+        for (const agentData of cachedFlow.agentOutputs || []) {
+          writer.write({
+            type: "data-agent",
+            id: agentData.tool,
+            data: agentData,
+          });
+        }
+
+        // Write the cached synthesis data
+        if (cachedFlow.synthesis) {
+          writer.write({
+            type: "data-synthesis",
+            id: "synthesis",
+            data: cachedFlow.synthesis,
+          });
+        }
+      },
+    });
+
+    const res = createUIMessageStreamResponse({ stream });
+    rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
+    return res;
+  }
+
   const stream = createUIMessageStream<MoralMessage>({
     execute: async ({ writer }) => {
       const result = streamText({
@@ -197,15 +233,20 @@ export async function POST(req: Request) {
       writer.merge(result.toUIMessageStream());
 
       (async () => {
+        const agentOutputs: AgentData[] = [];
+        let synthesis: SynthesisData | null = null;
+
         for await (const part of result.fullStream) {
           if (part.type === "tool-call") {
+            const agentData: AgentData = {
+              tool: part.toolName,
+              status: "running",
+            };
+
             writer.write({
               type: "data-agent",
               id: part.toolName,
-              data: {
-                tool: part.toolName,
-                status: "running",
-              } satisfies AgentData,
+              data: agentData,
             });
           } else if (part.type === "tool-result") {
             type ToolResultPart = {
@@ -224,6 +265,8 @@ export async function POST(req: Request) {
                   ? { summary: toolResult, agentsUsed: [], confidence: 0 }
                   : (toolResult as SynthesisData);
 
+              synthesis = synth;
+
               writer.write({
                 type: "data-synthesis",
                 id: "synthesis",
@@ -235,17 +278,30 @@ export async function POST(req: Request) {
                   ? toolResult
                   : JSON.stringify(toolResult);
 
+              const agentData: AgentData = {
+                tool: part.toolName,
+                output: out,
+                status: "done",
+              };
+
+              agentOutputs.push(agentData);
+
               writer.write({
                 type: "data-agent",
                 id: part.toolName,
-                data: {
-                  tool: part.toolName,
-                  output: out,
-                  status: "done",
-                } satisfies AgentData,
+                data: agentData,
               });
             }
           }
+        }
+
+        // Cache the complete conversation flow
+        if (synthesis) {
+          const conversationFlow = {
+            agentOutputs,
+            synthesis,
+          };
+          await semanticCache.set(sanitized, conversationFlow);
         }
       })().catch(console.error);
     },
