@@ -43,13 +43,13 @@ A multi-agent AI that evaluates tough organizational decisions from **legal, eth
 
 ---
 
-## 🔒 Guardrails
+## 🔒 Content Guardrails
 
-- **Safety moderation** via `moderateText()` before any LLM call.
-- **PII redaction** before tool execution.
-- **No hallucinated tools** — enforced in system prompt.
-- **Max step count**: stops after 10 orchestration steps to prevent runaway calls.
-- **Output limits**: most tools use `maxOutputTokens: 250` to keep responses concise.
+- **Safety moderation** via OpenAI moderation API before any LLM call
+- **PII redaction** removes emails, phones, credit cards before processing
+- **No hallucinated tools** — enforced in system prompt
+- **Max step count**: 10 orchestration steps to prevent runaway calls
+- **Output limits**: 250 tokens per tool to keep responses concise
 
 ---
 
@@ -66,12 +66,43 @@ The **AI Risk Agent (`aiRiskTool`)** uses RAG with [Pinecone](https://www.pineco
 
 ---
 
-## ⏳ Rate Limits
+## 🔒 Security
 
-- Configurable in `/lib/rateLimit`.
-- Defaults:
-  - **Per-IP limit**: defined by `limitChat` (e.g., X requests per minute/hour).
-  - On limit breach → HTTP 429 with `Rate-Limit-*` headers.
+**Multi-layered security implementation designed for test app usage:**
+
+### Rate Limiting (Very Restrictive)
+- **5 requests per day** (primary limit for test environment)
+- **3 requests per 10 minutes** (burst protection)
+- **2 PDF generations per day**
+- Enhanced client identification (IP + browser fingerprinting)
+
+### Input Validation
+- **Max payload**: 20KB per request
+- **Max messages**: 3 messages per request  
+- **Max text**: 1,500 characters total
+- Prevents resource exhaustion attacks
+
+### Prompt Injection Protection
+- **5 detection patterns**: ignore instructions, role confusion, system injection, template injection, safety bypass
+- **Risk-based handling**: HIGH risk blocked, MEDIUM/LOW sanitized
+- **Security logging**: All injection attempts tracked
+
+### Security Headers
+- **XSS Protection**: `X-XSS-Protection: 1; mode=block`
+- **Clickjacking Prevention**: `X-Frame-Options: DENY`
+- **MIME Protection**: `X-Content-Type-Options: nosniff`
+- **Privacy**: `Referrer-Policy: no-referrer`
+- **API Security**: Strict CSP and no-cache headers
+
+### Monitoring & Logging
+Real-time security event tracking with emoji prefixes for easy filtering:
+- 🔍 `REQUEST` - All attempts
+- 🚫 `RATE_LIMIT` - Rate violations  
+- ❌ `VALIDATION` - Input failures
+- 🚨 `HIGH_RISK_INJECTION` - Attack attempts
+- ✅ `SUCCESS` - Valid requests
+
+**📖 Complete documentation**: See `.docs/SECURITY.md` for detailed implementation, testing instructions, and troubleshooting guide.
 
 ---
 

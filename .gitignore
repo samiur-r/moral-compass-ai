@@ -40,3 +40,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI assistant files
+CLAUDE.md
+.claude/
+.docs/
+.cursor/
+.vscode/
+.idea/
+.anthropic/
+.ai/
+.copilot/
+.github-copilot/
+.windsurf/
+.continue/
+.aider/
+*.claude
+*.ai
+*.copilot
+*_ai_*
+*_claude_*
+*_copilot_*
+

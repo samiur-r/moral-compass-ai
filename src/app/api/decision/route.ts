@@ -18,18 +18,47 @@ import {
   synthesisTool,
   generatePdfLogTool,
 } from "@/tools";
-import { getClientId, limitChat, rateHeaders } from "@/lib/rateLimit";
-import { extractUserText, moderateText, redactPII } from "@/lib/safety";
+import { getClientId, checkMultipleLimits, rateHeaders } from "@/lib/rateLimit";
+import {
+  extractUserText,
+  moderateText,
+  redactPII,
+  validateInput,
+  detectPromptInjection,
+} from "@/lib/safety";
 import type { MoralMessage, AgentData, SynthesisData } from "@/types/ai";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const key = `ip:${getClientId(req)}`;
-  const rl = await limitChat(key);
+  const clientId = getClientId(req);
+  const timestamp = new Date().toISOString();
+
+  // Log request attempt
+  console.log(
+    `🔍 REQUEST: ${timestamp} | Client: ${clientId} | IP: ${
+      req.headers.get("x-forwarded-for") || "unknown"
+    }`
+  );
+
+  const rl = await checkMultipleLimits(clientId, "chat");
+
   if (!rl.success) {
+    const limitType = rl.limits.daily.success ? "short-term" : "daily";
+
+    // Log rate limit violation
+    console.warn(
+      `🚫 RATE_LIMIT: ${timestamp} | Client: ${clientId} | Type: ${limitType} | Short: ${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} | Daily: ${rl.limits.daily.remaining}/${rl.limits.daily.limit}`
+    );
+
     const res = new Response(
-      JSON.stringify({ error: "Rate limit exceeded. Try again soon." }),
+      JSON.stringify({
+        error: `Rate limit exceeded (${limitType}). Please try again later.`,
+        limits: {
+          shortTerm: `${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} remaining`,
+          daily: `${rl.limits.daily.remaining}/${rl.limits.daily.limit} remaining`,
+        },
+      }),
       {
         status: 429,
         headers: rateHeaders(rl),
@@ -40,9 +69,63 @@ export async function POST(req: Request) {
 
   const { messages }: { messages: UIMessage[] } = await req.json();
 
+  // Validate input size and structure for test app
+  const validation = validateInput(req, messages);
+  if (!validation.valid) {
+    // Log validation failure
+    console.warn(
+      `❌ VALIDATION: ${timestamp} | Client: ${clientId} | Error: ${
+        validation.error
+      } | Details: ${JSON.stringify(validation.details)}`
+    );
+
+    const res = new Response(
+      JSON.stringify({
+        error: validation.error,
+        details: validation.details,
+      }),
+      { status: 400 }
+    );
+    rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
+    return res;
+  }
+
   const rawUser = extractUserText(messages);
-  const userOk = await moderateText(rawUser);
+
+  // Check for prompt injection attempts
+  const injectionCheck = detectPromptInjection(rawUser);
+  if (injectionCheck.detected && injectionCheck.riskLevel === "high") {
+    // Log high-risk injection attempt (additional logging)
+    console.error(
+      `🚨 HIGH_RISK_INJECTION: ${timestamp} | Client: ${clientId} | Patterns: ${injectionCheck.patterns?.join(
+        ", "
+      )} | Text: "${rawUser.slice(0, 100)}..."`
+    );
+
+    const res = new Response(
+      JSON.stringify({
+        error:
+          "Your prompt contains suspicious patterns that may be attempting to manipulate the AI. Please rephrase your question.",
+        patterns: injectionCheck.patterns,
+        riskLevel: injectionCheck.riskLevel,
+      }),
+      { status: 400 }
+    );
+    rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
+    return res;
+  }
+
+  // Use sanitized text if injection was detected but not high risk
+  const textToModerate = injectionCheck.sanitizedText || rawUser;
+  const userOk = await moderateText(textToModerate);
   if (!userOk.allowed) {
+    // Log moderation failure
+    console.warn(
+      `⚠️ MODERATION: ${timestamp} | Client: ${clientId} | Categories: ${JSON.stringify(
+        userOk.categories
+      )} | Text: "${textToModerate.slice(0, 100)}..."`
+    );
+
     const res = new Response(
       JSON.stringify({
         error:
@@ -55,13 +138,16 @@ export async function POST(req: Request) {
     return res;
   }
 
-  const sanitized = redactPII(rawUser);
+  // Apply PII redaction to the text (could be sanitized from injection detection)
+  const finalText = injectionCheck.sanitizedText || rawUser;
+  const sanitized = redactPII(finalText);
 
   const isTextPart = (p: {
     type: string;
   }): p is { type: "text"; text: string } => p.type === "text";
 
-  if (sanitized !== rawUser) {
+  // Update messages if either injection sanitization or PII redaction changed the text
+  if (sanitized !== rawUser || injectionCheck.sanitizedText) {
     const newMessages = [...messages];
     for (let i = newMessages.length - 1; i >= 0; i--) {
       const m = newMessages[i];
@@ -69,7 +155,7 @@ export async function POST(req: Request) {
         newMessages[i] = {
           ...m,
           parts: m.parts.map((p) =>
-            isTextPart(p) ? { ...p, text: redactPII(p.text || "") } : p
+            isTextPart(p) ? { ...p, text: sanitized } : p
           ),
         };
         break;
@@ -164,6 +250,15 @@ export async function POST(req: Request) {
       })().catch(console.error);
     },
   });
+
+  // Log successful request processing
+  console.log(
+    `✅ SUCCESS: ${timestamp} | Client: ${clientId} | Text length: ${
+      rawUser.length
+    } | Injection: ${
+      injectionCheck.detected ? injectionCheck.riskLevel : "none"
+    }`
+  );
 
   const res = createUIMessageStreamResponse({ stream });
   rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));

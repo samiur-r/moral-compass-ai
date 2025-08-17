@@ -83,33 +83,93 @@ function createLimiter(
   return memoryLimiter(limit, sec * 1000);
 }
 
-// ---- policies ----
-export const limitChat = createLimiter(20, "10 m", "chat"); // 20 / 10min per client
-export const limitPdf = createLimiter(5, "1 m", "pdf"); // 5 / 1min per client
+// ---- policies (very restrictive for test app) ----
+export const limitChat = createLimiter(3, "10 m", "chat"); // 3 / 10min per client  
+export const limitChatDaily = createLimiter(5, "1 d", "chat-daily"); // 5 / day per client
+export const limitPdf = createLimiter(1, "1 m", "pdf"); // 1 / 1min per client
+export const limitPdfDaily = createLimiter(2, "1 d", "pdf-daily"); // 2 / day per client
 
 type RequestWithIp = Request & { ip?: string | null };
 
 // ---- utilities ----
 export function getClientId(req: RequestWithIp) {
+  // Primary: Use X-Forwarded-For header (most reliable in production)
   const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
+  if (xf) {
+    const primaryIp = xf.split(",")[0].trim();
+    return `ip:${primaryIp}`;
+  }
 
+  // Secondary: Use direct IP 
   const ip = req.ip as string | undefined;
-  if (ip) return ip;
+  if (ip) return `ip:${ip}`;
+
+  // Fallback: Create fingerprint from headers (for better identification)
   const ua = req.headers.get("user-agent") ?? "unknown";
-  return `anon:${ua.slice(0, 80)}`;
+  const acceptLang = req.headers.get("accept-language") ?? "";
+  const acceptEnc = req.headers.get("accept-encoding") ?? "";
+  
+  // Create a simple hash-like identifier from headers
+  const fingerprint = Buffer.from(`${ua}:${acceptLang}:${acceptEnc}`)
+    .toString("base64")
+    .slice(0, 16);
+  
+  return `fp:${fingerprint}`;
 }
 
-export function rateHeaders(info: LimitResult) {
+export interface MultiLimitResult {
+  success: boolean;
+  limits: {
+    shortTerm: LimitResult;
+    daily: LimitResult;
+  };
+  restrictiveLimit: LimitResult; // The most restrictive one
+}
+
+/** Check multiple rate limits and return the most restrictive */
+export async function checkMultipleLimits(
+  clientId: string,
+  type: "chat" | "pdf"
+): Promise<MultiLimitResult> {
+  const [shortTerm, daily] = await Promise.all([
+    type === "chat" ? limitChat(clientId) : limitPdf(clientId),
+    type === "chat" ? limitChatDaily(clientId) : limitPdfDaily(clientId),
+  ]);
+
+  // Both must succeed for overall success
+  const success = shortTerm.success && daily.success;
+  
+  // Find the most restrictive limit (least remaining time)
+  const restrictiveLimit = daily.remaining < shortTerm.remaining ? daily : shortTerm;
+
+  return {
+    success,
+    limits: { shortTerm, daily },
+    restrictiveLimit,
+  };
+}
+
+export function rateHeaders(info: LimitResult | MultiLimitResult) {
   const h = new Headers();
-  h.set("RateLimit-Limit", String(info.limit));
-  h.set("RateLimit-Remaining", String(info.remaining));
-  h.set("RateLimit-Reset", String(info.reset)); // unix seconds
-  if (!info.success) {
+  
+  // Use restrictive limit for headers if MultiLimitResult
+  const limit = "restrictiveLimit" in info ? info.restrictiveLimit : info;
+  
+  h.set("RateLimit-Limit", String(limit.limit));
+  h.set("RateLimit-Remaining", String(limit.remaining));
+  h.set("RateLimit-Reset", String(limit.reset)); // unix seconds
+  
+  if (!limit.success) {
     h.set(
       "Retry-After",
-      String(Math.max(1, info.reset - Math.floor(Date.now() / 1000)))
+      String(Math.max(1, limit.reset - Math.floor(Date.now() / 1000)))
     );
   }
+  
+  // Add additional context for multi-limit
+  if ("limits" in info) {
+    h.set("RateLimit-Policy", "multi-tier");
+  }
+  
   return h;
 }
