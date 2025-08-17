@@ -33,25 +33,31 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const clientId = getClientId(req);
   const timestamp = new Date().toISOString();
-  
+
   // Log request attempt
-  console.log(`🔍 REQUEST: ${timestamp} | Client: ${clientId} | IP: ${req.headers.get("x-forwarded-for") || "unknown"}`);
-  
+  console.log(
+    `🔍 REQUEST: ${timestamp} | Client: ${clientId} | IP: ${
+      req.headers.get("x-forwarded-for") || "unknown"
+    }`
+  );
+
   const rl = await checkMultipleLimits(clientId, "chat");
-  
+
   if (!rl.success) {
     const limitType = rl.limits.daily.success ? "short-term" : "daily";
-    
+
     // Log rate limit violation
-    console.warn(`🚫 RATE_LIMIT: ${timestamp} | Client: ${clientId} | Type: ${limitType} | Short: ${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} | Daily: ${rl.limits.daily.remaining}/${rl.limits.daily.limit}`);
-    
+    console.warn(
+      `🚫 RATE_LIMIT: ${timestamp} | Client: ${clientId} | Type: ${limitType} | Short: ${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} | Daily: ${rl.limits.daily.remaining}/${rl.limits.daily.limit}`
+    );
+
     const res = new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: `Rate limit exceeded (${limitType}). Please try again later.`,
         limits: {
           shortTerm: `${rl.limits.shortTerm.remaining}/${rl.limits.shortTerm.limit} remaining`,
           daily: `${rl.limits.daily.remaining}/${rl.limits.daily.limit} remaining`,
-        }
+        },
       }),
       {
         status: 429,
@@ -67,8 +73,12 @@ export async function POST(req: Request) {
   const validation = validateInput(req, messages);
   if (!validation.valid) {
     // Log validation failure
-    console.warn(`❌ VALIDATION: ${timestamp} | Client: ${clientId} | Error: ${validation.error} | Details: ${JSON.stringify(validation.details)}`);
-    
+    console.warn(
+      `❌ VALIDATION: ${timestamp} | Client: ${clientId} | Error: ${
+        validation.error
+      } | Details: ${JSON.stringify(validation.details)}`
+    );
+
     const res = new Response(
       JSON.stringify({
         error: validation.error,
@@ -86,8 +96,12 @@ export async function POST(req: Request) {
   const injectionCheck = detectPromptInjection(rawUser);
   if (injectionCheck.detected && injectionCheck.riskLevel === "high") {
     // Log high-risk injection attempt (additional logging)
-    console.error(`🚨 HIGH_RISK_INJECTION: ${timestamp} | Client: ${clientId} | Patterns: ${injectionCheck.patterns?.join(", ")} | Text: "${rawUser.slice(0, 100)}..."`);
-    
+    console.error(
+      `🚨 HIGH_RISK_INJECTION: ${timestamp} | Client: ${clientId} | Patterns: ${injectionCheck.patterns?.join(
+        ", "
+      )} | Text: "${rawUser.slice(0, 100)}..."`
+    );
+
     const res = new Response(
       JSON.stringify({
         error:
@@ -106,8 +120,12 @@ export async function POST(req: Request) {
   const userOk = await moderateText(textToModerate);
   if (!userOk.allowed) {
     // Log moderation failure
-    console.warn(`⚠️ MODERATION: ${timestamp} | Client: ${clientId} | Categories: ${JSON.stringify(userOk.categories)} | Text: "${textToModerate.slice(0, 100)}..."`);
-    
+    console.warn(
+      `⚠️ MODERATION: ${timestamp} | Client: ${clientId} | Categories: ${JSON.stringify(
+        userOk.categories
+      )} | Text: "${textToModerate.slice(0, 100)}..."`
+    );
+
     const res = new Response(
       JSON.stringify({
         error:
@@ -153,11 +171,11 @@ export async function POST(req: Request) {
         tools: {
           environment: environmentTool,
           law: lawTool,
-          // dei: deiTool,
-          // economist: economistTool,
-          // prAndReputation: prAndReputationTool,
-          // publicHealth: publicHealthTool,
-          // aiRisk: aiRiskTool,
+          dei: deiTool,
+          economist: economistTool,
+          prAndReputation: prAndReputationTool,
+          publicHealth: publicHealthTool,
+          aiRisk: aiRiskTool,
           generatePdfLog: generatePdfLogTool,
           synthesis: synthesisTool,
         },
@@ -169,7 +187,7 @@ export async function POST(req: Request) {
           Do NOT hallucinate tool names.
         `,
         messages: convertToModelMessages(messages),
-        stopWhen: [stepCountIs(6)],
+        stopWhen: [stepCountIs(10)],
         toolChoice: "auto",
         onError({ error }) {
           console.error("stream error:", error);
@@ -234,7 +252,13 @@ export async function POST(req: Request) {
   });
 
   // Log successful request processing
-  console.log(`✅ SUCCESS: ${timestamp} | Client: ${clientId} | Text length: ${rawUser.length} | Injection: ${injectionCheck.detected ? injectionCheck.riskLevel : "none"}`);
+  console.log(
+    `✅ SUCCESS: ${timestamp} | Client: ${clientId} | Text length: ${
+      rawUser.length
+    } | Injection: ${
+      injectionCheck.detected ? injectionCheck.riskLevel : "none"
+    }`
+  );
 
   const res = createUIMessageStreamResponse({ stream });
   rateHeaders(rl).forEach((v, k) => res.headers.set(k, v));
